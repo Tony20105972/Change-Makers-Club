@@ -36,6 +36,13 @@ const App = () => {
   const [reportId] = useState(() => Math.random().toString(36).substring(2, 11).toUpperCase());
   const [timestamp] = useState(new Date().toISOString());
 
+  // 참여 링크 정의
+  const JOIN_LINK = "https://forms.gle/uKVmthgsvtaHx9zg8";
+
+  const handleJoinClick = () => {
+    window.open(JOIN_LINK, '_blank');
+  };
+
   // 1. 질문 데이터
   const questions = [
     { id: 'articulation', q: "내 직무 역량을 전공자가 아닌 사람에게 1분 안에 설명할 수 있나요?", options: [{ t: "네, 가능함", tag: "articulation_high" }, { t: "아니오, 막막함", tag: "articulation_low" }] },
@@ -121,7 +128,7 @@ const App = () => {
           </div>
           <div className="flex items-center gap-4">
             <button onClick={resetTest} className="hidden sm:block text-sm font-black underline underline-offset-4 decoration-2">3분 판정</button>
-            <button onClick={() => setView('landing')} className="bg-black text-white px-6 py-3 text-sm font-bold hover:bg-gray-800 transition-all active:scale-95">참여하기</button>
+            <button onClick={handleJoinClick} className="bg-black text-white px-6 py-3 text-sm font-bold hover:bg-gray-800 transition-all active:scale-95">참여하기</button>
             <button className="lg:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
               {isMenuOpen ? <X /> : <Menu />}
             </button>
@@ -140,6 +147,7 @@ const App = () => {
             <a href="#price" onClick={() => setIsMenuOpen(false)}>가격</a>
             <a href="#faq" onClick={() => setIsMenuOpen(false)}>FAQ</a>
             <button onClick={resetTest} className="text-left text-red-600">3분 판정 바로가기</button>
+            <button onClick={handleJoinClick} className="text-left text-black">참여 신청하기</button>
           </div>
         </div>
       )}
@@ -160,7 +168,7 @@ const App = () => {
                 방법론적 문맹을 해소하고 한 달 안에 실제 지원까지 도달하게 만드는 CMC의 실전 가이드.
               </p>
               <div className="flex flex-col md:flex-row justify-center gap-6">
-                <button className="bg-black text-white px-12 py-6 font-black text-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)]">
+                <button onClick={handleJoinClick} className="bg-black text-white px-12 py-6 font-black text-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)]">
                   이번 달 실행 참여하기 <ArrowRight />
                 </button>
                 <button onClick={resetTest} className="border-2 border-black px-12 py-6 font-black text-xl hover:bg-black hover:text-white transition-all active:scale-95">
@@ -214,7 +222,6 @@ const App = () => {
                 </div>
               </div>
 
-              {/* 판정 기준 안내 */}
               <div className="max-w-2xl mx-auto bg-gray-50 border border-black p-6 mb-16 text-left">
                 <p className="font-black text-xs uppercase tracking-widest mb-4 border-b border-black pb-2">판정 기준 안내</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[11px] font-bold">
@@ -462,17 +469,17 @@ const App = () => {
                     <li className="flex items-start gap-2">• 의존적 참여에 따른 성장 부재</li>
                   </ul>
                 </div>
-                <div className="p-12 bg-black text-white relative transform md:scale-110 shadow-2xl z-10 border-x-2 border-black">
+                <div className="p-12 bg-black text-white relative transform md:scale-110 shadow-2xl z-10 border-x-2 border-black text-center">
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-green-500 text-black px-4 py-1 text-[10px] font-black uppercase tracking-widest">Practical Solution</span>
                   <h4 className="font-black text-2xl mb-2">CMC JOB TRACK (31기)</h4>
                   <p className="text-4xl font-black mb-10 tracking-tighter text-green-400 italic">149,000원</p>
-                  <ul className="space-y-4 text-sm font-black mb-12 italic">
+                  <ul className="space-y-4 text-sm font-black mb-12 italic text-left">
                     <li className="flex items-start gap-2">✅ 제로베이스 지원 가이드</li>
                     <li className="flex items-start gap-2">✅ 4주 강제 실행 시스템</li>
                     <li className="flex items-start gap-2">✅ 스쿼드 밀착 관리 & 피드백</li>
                     <li className="flex items-start gap-2">✅ 자생적 취업 루틴 형성</li>
                   </ul>
-                  <button className="w-full bg-white text-black py-5 font-black text-lg hover:bg-gray-100 transition-all active:scale-95 shadow-[10px_10px_0px_0px_rgba(255,255,255,0.1)]">
+                  <button onClick={handleJoinClick} className="w-full bg-white text-black py-5 font-black text-lg hover:bg-gray-100 transition-all active:scale-95 shadow-[10px_10px_0px_0px_rgba(255,255,255,0.1)]">
                     이 가격으로 결과 만들기
                   </button>
                 </div>
@@ -506,7 +513,7 @@ const App = () => {
               <div className="space-y-4">
                 {[
                   { q: "정말 결과가 나오나요?", a: "네. CMC는 92% 이상의 수료생들이 4주 안에 평균 12회 이상의 실제 지원을 완료합니다. 지원이 결과의 시작입니다." },
-                  { q: "누구에게나 가능한가요?", a: "취업의 기초 방법론을 모르는 분들, 지방에서 정보가 부족한 분들, 실행력이 필요한 전공자 모두에게 최적화되어 있습니다." },
+                  { q: " 누구에게나 가능한가요?", a: "취업의 기초 방법론을 모르는 분들, 지방에서 정보가 부족한 분들, 실행력이 필요한 전공자 모두에게 최적화되어 있습니다." },
                   { q: "실패하면 어떻게 되나요?", a: "미션을 지연하거나 포기할 경우 시스템 접근이 제한됩니다. 이 강력한 제한 구조가 당신을 실패하지 않게 만듭니다." }
                 ].map((f, i) => (
                   <details key={i} className="group border border-black bg-white">
@@ -533,7 +540,7 @@ const App = () => {
                 절대 끝나지 않게 만듭니다."
               </h2>
               <div className="flex flex-col items-center gap-6">
-                <button className="bg-white text-black px-16 py-6 font-black text-2xl hover:bg-gray-200 transition-all active:scale-95 shadow-[12px_12px_0px_0px_rgba(255,255,255,0.1)]">
+                <button onClick={handleJoinClick} className="bg-white text-black px-16 py-6 font-black text-2xl hover:bg-gray-200 transition-all active:scale-95 shadow-[12px_12px_0px_0px_rgba(255,255,255,0.1)]">
                   지금 참여 신청하기
                 </button>
                 <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest text-gray-500">
@@ -777,8 +784,8 @@ const App = () => {
                 <button onClick={resetTest} className="flex-1 py-6 border-2 border-black font-black text-xl hover:bg-black hover:text-white transition-all flex items-center justify-center gap-2 group">
                   <RotateCcw size={20} className="group-hover:rotate-[-180deg] transition-transform duration-500" /> 다시 판정하기
                 </button>
-                <button onClick={() => setView('landing')} className="flex-1 py-6 bg-black text-white font-black text-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-3 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] active:scale-95 group">
-                  <Zap size={20} className="text-yellow-400 fill-yellow-400" /> 실행 시스템 활성화하기
+                <button onClick={handleJoinClick} className="flex-1 py-6 bg-black text-white font-black text-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-3 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] active:scale-95 group">
+                  <Zap size={20} className="text-yellow-400 fill-yellow-400" /> 실행 시스템 활성화하기 (참여 신청)
                 </button>
               </div>
 
