@@ -265,7 +265,7 @@ const App = () => {
                 <h4 className="text-sm font-black uppercase tracking-[0.4em] mb-12 text-center italic">CMC 프로그램 운영 원칙</h4>
                 <div className="grid md:grid-cols-3 gap-8 text-center">
                   {[
-                    { num: "01", text: "행동 없는 지식은 쓰레기다. (80% 실행 비율)" },
+                    { num: "01", text: "행동 없는 지식은 성과가 없습니다. (80% 실행 비율)" },
                     { num: "02", text: "동료의 속도가 나의 데드라인이 된다." },
                     { num: "03", text: "한 달 뒤, 당신의 손엔 실제 지원 이력이 남아야 한다." }
                   ].map((p, i) => (
