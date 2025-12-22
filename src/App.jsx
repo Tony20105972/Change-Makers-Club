@@ -1,804 +1,574 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  ShieldAlert, 
-  Activity, 
-  Lock, 
+  ArrowRight, 
   ChevronRight, 
-  Zap, 
-  Layers, 
+  Menu, 
+  X, 
   Clock, 
   Target, 
-  RefreshCcw,
-  AlertCircle,
-  CheckCircle2,
-  Menu,
-  X,
-  ArrowRight,
-  RotateCcw,
-  Terminal,
+  Lock, 
+  ShieldCheck, 
+  Users, 
+  CheckCircle2, 
+  BarChart3, 
+  HelpCircle, 
+  ClipboardCheck,
+  Zap,
+  Layout,
   FileText,
-  BarChart3,
-  Cpu,
-  Users,
-  Unlock,
+  User,
+  ExternalLink,
+  RotateCcw,
+  Activity,
   AlertTriangle,
-  MessageCircle,
-  TrendingUp,
-  ExternalLink
+  Quote
 } from 'lucide-react';
 
+// --- CONFIG & CONSTANTS ---
+const JOIN_LINK = "https://forms.gle/uKVmthgsvtaHx9zg8";
+
+const NAV_ITEMS = [
+  { id: 'HOME', label: 'HOME' },
+  { id: 'CMC', label: 'CHANGE MAKERS CLUB' },
+  { id: 'PROGRAM', label: '프로그램' },
+  { id: 'CURRICULUM', label: '커리큘럼' },
+  { id: 'STORY', label: '멤버 스토리' },
+  { id: 'FAQ', label: 'FAQ' },
+];
+
+const QUESTIONS = [
+  { id: 'articulation', q: "내 직무 역량을 전공자가 아닌 사람에게 1분 안에 설명할 수 있나요?", options: [{ t: "네, 명확히 가능합니다", tag: "high" }, { t: "아직은 조금 막막합니다", tag: "low" }] },
+  { id: 'exploration', q: "최근 1주일간 본인이 진짜 가고 싶은 공고를 5개 이상 찾았나요?", options: [{ t: "네, 리스트를 확보했습니다", tag: "high" }, { t: "아니오, 찾는 법을 모르겠습니다", tag: "low" }] },
+  { id: 'trigger', q: "공고를 보고 '지금 바로 지원하기'를 누르는 데 가장 큰 걸림돌은?", options: [{ t: "준비가 덜 된 듯한 완벽주의", tag: "low" }, { t: "서류 작성의 기술적 부재", tag: "low" }, { t: "이미 망설임 없이 지원 중", tag: "high" }] },
+  { id: 'loop', q: "스스로 정한 취업 루틴을 3일 이상 지속해본 경험이 최근에 있나요?", options: [{ t: "네, 루틴을 지키고 있습니다", tag: "high" }, { t: "아니오, 작심삼일이 반복됩니다", tag: "low" }] },
+  { id: 'feedback', q: "내 서류에 대한 전문가의 냉정한 비판을 수용할 준비가 됐나요?", options: [{ t: "네, 성장을 위해 필요합니다", tag: "high" }, { t: "아니오, 상처받을까 두렵습니다", tag: "low" }] },
+  { id: 'benchmark', q: "성공한 선배들의 실제 합격 이력서 기준점을 알고 있나요?", options: [{ t: "네, 기준을 알고 있습니다", tag: "high" }, { t: "아니오, 감으로 쓰고 있습니다", tag: "low" }] },
+  { id: 'pressure', q: "마감 직전의 압박감이 올 때, 당신의 행동 양식은?", options: [{ t: "초집중하여 결과물 제출", tag: "high" }, { t: "부담감에 포기하거나 미룸", tag: "low" }] }
+];
+
 const App = () => {
-  const [view, setView] = useState('landing'); // landing, test, analyzing, result
+  const [currentPage, setCurrentPage] = useState('HOME');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  // Diagnosis States
+  const [diagStep, setDiagStep] = useState('intro'); // intro, testing, analyzing, result
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState([]);
-  const [analysisStep, setAnalysisStep] = useState(0);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [reportId] = useState(() => Math.random().toString(36).substring(2, 11).toUpperCase());
-  const [timestamp] = useState(new Date().toISOString());
-
-  // 참여 링크 정의
-  const JOIN_LINK = "https://forms.gle/uKVmthgsvtaHx9zg8";
+  const [analysisProgress, setAnalysisProgress] = useState(0);
 
   const handleJoinClick = () => {
     window.open(JOIN_LINK, '_blank');
   };
 
-  // 1. 질문 데이터
-  const questions = [
-    { id: 'articulation', q: "내 직무 역량을 전공자가 아닌 사람에게 1분 안에 설명할 수 있나요?", options: [{ t: "네, 가능함", tag: "articulation_high" }, { t: "아니오, 막막함", tag: "articulation_low" }] },
-    { id: 'exploration', q: "최근 1주일간 지원하고 싶은 공고를 5개 이상 발견했나요?", options: [{ t: "네, 리스트업함", tag: "market_search_active" }, { t: "아니오/방법 모름", tag: "market_search_blind" }] },
-    { id: 'trigger', q: "공고를 보고 '지금 바로 지원하기'를 누르는 데 방해되는 요소는?", options: [{ t: "완성도에 대한 불안", tag: "trigger_frozen" }, { t: "방법론적 무지", tag: "trigger_illiteracy" }] },
-    { id: 'loop', q: "스스로 정한 루틴을 3일 이상 지속해본 경험이 최근 한 달 내에 있나요?", options: [{ t: "네, 있음", tag: "loop_initialized" }, { t: "아니오, 없음", tag: "loop_uninitialized" }] },
-    { id: 'feedback', q: "내 이력서에 대한 타인의 냉정한 비판을 수용할 준비가 되었나요?", options: [{ t: "네, 수용 가능", tag: "feedback_ready" }, { t: "아니오, 방어 기제 작동", tag: "feedback_defensive" }] },
-    { id: 'benchmark', q: "합격자들의 실제 이력서나 포트폴리오 기준점을 알고 있나요?", options: [{ t: "네, 알고 있음", tag: "benchmark_exist" }, { t: "아니오, 모름", tag: "benchmark_absent" }] },
-    { id: 'pressure', q: "마감 1시간 전, 압박감이 있을 때 본인의 퍼포먼스는?", options: [{ t: "몰입도 상승", tag: "pressure_driver" }, { t: "실행 포기/동결", tag: "pressure_frozen" }] }
-  ];
-
-  const resetTest = () => {
-    setCurrentQ(0);
-    setAnswers([]);
-    setAnalysisStep(0);
-    setView('test');
+  const navigateTo = (page) => {
+    setCurrentPage(page);
     setIsMenuOpen(false);
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (page === 'DIAGNOSIS') setDiagStep('intro');
   };
 
-  const goToLanding = () => {
+  const startDiagnosis = () => {
+    setDiagStep('testing');
     setCurrentQ(0);
     setAnswers([]);
-    setAnalysisStep(0);
-    setView('landing');
-    setIsMenuOpen(false);
   };
-
-  // 분석 엔진 로직
-  const resultData = useMemo(() => {
-    if (answers.length < questions.length) return null;
-    const tags = answers;
-    const negativeTags = tags.filter(t => t.includes('frozen') || t.includes('low') || t.includes('uninitialized') || t.includes('blind') || t.includes('absent') || t.includes('defensive') || t.includes('illiteracy'));
-    const negativeCount = negativeTags.length;
-    
-    let status = 'PASS';
-    let color = 'text-green-500';
-    if (negativeCount >= 5) { status = 'FAIL'; color = 'text-red-500'; }
-    else if (negativeCount >= 2) { status = 'HOLD'; color = 'text-yellow-500'; }
-    
-    return { status, tags, negativeCount, color };
-  }, [answers, questions.length]);
-
-  useEffect(() => {
-    if (view === 'analyzing') {
-      const timers = [
-        setTimeout(() => setAnalysisStep(1), 1000),
-        setTimeout(() => setAnalysisStep(2), 2500),
-        setTimeout(() => setAnalysisStep(3), 4000),
-        setTimeout(() => setAnalysisStep(4), 5500),
-        setTimeout(() => setView('result'), 7000)
-      ];
-      return () => timers.forEach(clearTimeout);
-    }
-  }, [view]);
 
   const handleAnswer = (tag) => {
     const newAnswers = [...answers, tag];
-    if (currentQ < questions.length - 1) {
+    if (currentQ < QUESTIONS.length - 1) {
       setAnswers(newAnswers);
       setCurrentQ(currentQ + 1);
     } else {
       setAnswers(newAnswers);
-      setView('analyzing');
+      setDiagStep('analyzing');
     }
   };
 
+  useEffect(() => {
+    if (diagStep === 'analyzing') {
+      const interval = setInterval(() => {
+        setAnalysisProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setTimeout(() => setDiagStep('result'), 600);
+            return 100;
+          }
+          return prev + 2;
+        });
+      }, 30);
+      return () => clearInterval(interval);
+    }
+  }, [diagStep]);
+
+  const diagnosisResult = useMemo(() => {
+    const lowCount = answers.filter(a => a === 'low').length;
+    if (lowCount <= 1) return { status: 'OPTIMIZED', color: 'text-black', desc: '현재 실행력과 도구 활용 능력이 최상위권입니다. CMC의 고속 트랙을 통해 즉각적인 결과 도출이 가능합니다.' };
+    if (lowCount <= 4) return { status: 'POTENTIAL', color: 'text-zinc-600', desc: '기초 체력은 있으나 핵심 방법론이 부재합니다. CMC 가이드를 통해 지원 속도를 3배 이상 높여야 합니다.' };
+    return { status: 'REBOOT', color: 'text-zinc-400', desc: '취업 마인드셋과 기본 도구 정비가 시급합니다. CMC의 강제 실행 환경에서 처음부터 다시 쌓아올려야 합니다.' };
+  }, [answers]);
+
   return (
-    <div className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white scroll-smooth overflow-x-hidden">
-      {/* Navigation */}
-      <nav className="border-b border-black sticky top-0 bg-white z-[60]">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <span className="font-black text-2xl tracking-tighter cursor-pointer" onClick={goToLanding}>CMC TRACK</span>
-            <div className="hidden lg:flex gap-6 text-sm font-bold">
-              <a href="#intro" className="hover:text-gray-500">소개</a>
-              <a href="#system" className="hover:text-gray-500">실행시스템</a>
-              <a href="#curriculum" className="hover:text-gray-500">커리큘럼</a>
-              <a href="#data" className="hover:text-gray-500">성과/데이터</a>
-              <a href="#price" className="hover:text-gray-500">가격</a>
-              <a href="#faq" className="hover:text-gray-500">FAQ</a>
+    <div className="min-h-screen bg-[#fafafa] text-[#1a1a1a] font-sans selection:bg-black selection:text-white antialiased">
+      {/* NAVIGATION */}
+      <nav className="fixed top-0 w-full bg-white/80 backdrop-blur-xl border-b border-black/5 z-[100] h-20 shadow-sm">
+        <div className="max-w-[1200px] mx-auto h-full px-6 flex items-center justify-between">
+          <div className="flex items-center gap-12">
+            <span className="font-black text-2xl tracking-tighter cursor-pointer hover:opacity-70 transition-opacity" onClick={() => navigateTo('HOME')}>CMC.</span>
+            <div className="hidden lg:flex gap-8">
+              {NAV_ITEMS.map(item => (
+                <button 
+                  key={item.id}
+                  onClick={() => navigateTo(item.id)}
+                  className={`text-[12px] font-bold tracking-tight transition-all ${currentPage === item.id ? 'text-black scale-105 underline underline-offset-4 decoration-2' : 'text-zinc-400 hover:text-black'}`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={resetTest} className="hidden sm:block text-sm font-black underline underline-offset-4 decoration-2">3분 판정</button>
-            <button onClick={handleJoinClick} className="bg-black text-white px-6 py-3 text-sm font-bold hover:bg-gray-800 transition-all active:scale-95">참여하기</button>
-            <button className="lg:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              {isMenuOpen ? <X /> : <Menu />}
+            <button onClick={() => navigateTo('DIAGNOSIS')} className="hidden sm:block text-[12px] font-black px-5 py-2.5 rounded-full border border-black hover:bg-black hover:text-white transition-all shadow-sm">3분 진단</button>
+            <button onClick={handleJoinClick} className="text-[12px] font-black bg-black text-white px-6 py-2.5 rounded-full hover:bg-zinc-800 transition-all flex items-center gap-2 shadow-lg shadow-black/10">지금 신청하기 <ExternalLink size={14}/></button>
+            <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
         </div>
       </nav>
 
-      {/* Mobile Menu */}
+      {/* MOBILE MENU */}
       {isMenuOpen && (
-        <div className="fixed inset-0 bg-white z-50 lg:hidden pt-24 px-6">
-          <div className="flex flex-col gap-8 text-2xl font-black">
-            <a href="#intro" onClick={() => setIsMenuOpen(false)}>소개</a>
-            <a href="#system" onClick={() => setIsMenuOpen(false)}>실행시스템</a>
-            <a href="#curriculum" onClick={() => setIsMenuOpen(false)}>커리큘럼</a>
-            <a href="#data" onClick={() => setIsMenuOpen(false)}>성과/데이터</a>
-            <a href="#price" onClick={() => setIsMenuOpen(false)}>가격</a>
-            <a href="#faq" onClick={() => setIsMenuOpen(false)}>FAQ</a>
-            <button onClick={resetTest} className="text-left text-red-600">3분 판정 바로가기</button>
-            <button onClick={handleJoinClick} className="text-left text-black">참여 신청하기</button>
+        <div className="fixed inset-0 bg-white z-[90] pt-32 px-10 lg:hidden animate-in fade-in duration-300">
+          <div className="flex flex-col gap-8 text-3xl font-black italic tracking-tighter">
+            {NAV_ITEMS.map(item => (
+              <button key={item.id} onClick={() => navigateTo(item.id)} className="text-left hover:translate-x-2 transition-transform">{item.label}</button>
+            ))}
+            <div className="h-[1px] bg-black/10 my-4" />
+            <button onClick={() => navigateTo('DIAGNOSIS')} className="text-left text-zinc-400">3분 진단</button>
           </div>
         </div>
       )}
 
-      {/* [LANDING VIEW] */}
-      {view === 'landing' && (
-        <main>
-          {/* Hero Section */}
-          <section className="pt-24 pb-32 px-6 border-b border-black text-center">
-            <div className="max-w-5xl mx-auto">
-              <p className="text-xs font-bold tracking-[0.4em] uppercase mb-10 text-gray-400">Result-Oriented Execution System</p>
-              <h1 className="text-5xl md:text-8xl font-black mb-12 leading-[1.05] tracking-tighter break-keep">
-                전공은 공부했지만,<br />
-                <span className="bg-black text-white px-4 inline-block transform -rotate-1">취업은 배운 적 없으니까.</span>
-              </h1>
-              <p className="text-xl md:text-2xl text-gray-700 mb-16 leading-relaxed break-keep max-w-3xl mx-auto font-medium">
-                취업은 의지의 문제가 아닌 <strong>구조와 방법의 문제</strong>입니다.<br />
-                방법론적 문맹을 해소하고 한 달 안에 실제 지원까지 도달하게 만드는 CMC의 실전 가이드.
-              </p>
-              <div className="flex flex-col md:flex-row justify-center gap-6">
-                <button onClick={handleJoinClick} className="bg-black text-white px-12 py-6 font-black text-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)]">
-                  이번 달 실행 참여하기 <ArrowRight />
-                </button>
-                <button onClick={resetTest} className="border-2 border-black px-12 py-6 font-black text-xl hover:bg-black hover:text-white transition-all active:scale-95">
-                  3분 판정 바로가기
-                </button>
+      {/* CONTENT */}
+      <div className="pt-20">
+        {currentPage === 'HOME' && <HomePage onDiagnosis={() => navigateTo('DIAGNOSIS')} onJoin={handleJoinClick} />}
+        {currentPage === 'CMC' && <CmcPage />}
+        {currentPage === 'PROGRAM' && <ProgramPage />}
+        {currentPage === 'CURRICULUM' && <CurriculumPage />}
+        {currentPage === 'STORY' && <StoryPage />}
+        {currentPage === 'FAQ' && <FaqPage />}
+        {currentPage === 'DIAGNOSIS' && (
+          <DiagnosisSection 
+            step={diagStep} 
+            currentQ={currentQ} 
+            onStart={startDiagnosis} 
+            onAnswer={handleAnswer} 
+            progress={analysisProgress}
+            result={diagnosisResult}
+            onReset={() => setDiagStep('intro')}
+            onJoin={handleJoinClick}
+          />
+        )}
+      </div>
+
+      <footer className="bg-white border-t border-black/5 py-32 px-6 mt-20">
+        <div className="max-w-4xl mx-auto text-center space-y-8">
+          <div className="font-black text-3xl tracking-tighter opacity-20">CHANGE MAKERS CLUB</div>
+          <p className="text-sm font-medium text-zinc-400 italic">오직 결과로만 증명하는 실행가들의 커뮤니티</p>
+          <div className="flex justify-center gap-6 grayscale opacity-50">
+             <div className="w-10 h-10 rounded-full border border-black/10 flex items-center justify-center font-black">C</div>
+             <div className="w-10 h-10 rounded-full border border-black/10 flex items-center justify-center font-black">M</div>
+             <div className="w-10 h-10 rounded-full border border-black/10 flex items-center justify-center font-black">C</div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+// --- SUB-COMPONENTS ---
+
+const HomePage = ({ onDiagnosis, onJoin }) => (
+  <div className="max-w-[1200px] mx-auto px-6">
+    <section className="py-40 text-center relative">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-zinc-100 to-transparent -z-10 rounded-full blur-3xl opacity-30" />
+      
+      <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-zinc-100 rounded-full text-[10px] font-black tracking-[0.2em] mb-12 uppercase text-zinc-500 shadow-sm border border-white">
+        <Clock size={12} className="text-black"/> 4-Week Execution Track
+      </div>
+      
+      <h1 className="text-7xl md:text-9xl font-black tracking-tighter mb-14 leading-[0.95] text-zinc-900">
+        전공은 공부했지만,<br />
+        <span className="text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] italic">취업은 배운 적 없으니까.</span>
+      </h1>
+      
+      <p className="text-xl md:text-2xl font-bold text-zinc-400 max-w-2xl mx-auto leading-relaxed mb-16 break-keep italic">
+        취업은 의지의 문제가 아닌 구조와 방법의 문제입니다.<br />
+        <span className="text-black">한 달 안에 실제 지원까지 도달하게 만드는</span> CMC의 실전 프로세스.
+      </p>
+      
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
+        <button onClick={onJoin} className="w-full sm:w-auto bg-black text-white px-12 py-6 text-xl font-black rounded-2xl hover:bg-zinc-800 transition-all flex items-center justify-center gap-4 shadow-2xl shadow-black/20 hover:-translate-y-1">
+          지금 신청하기 <ArrowRight />
+        </button>
+        <button onClick={onDiagnosis} className="w-full sm:w-auto bg-white border border-zinc-200 px-12 py-6 text-xl font-black rounded-2xl hover:border-black transition-all shadow-xl shadow-black/[0.03] hover:-translate-y-1">
+          3분 진단
+        </button>
+      </div>
+    </section>
+
+    <section className="py-40 border-y border-black/5">
+      <div className="grid md:grid-cols-2 gap-20 items-center">
+        <div className="space-y-10">
+          <h2 className="text-5xl font-black tracking-tighter leading-tight italic">
+            "우리는 '열심히'를<br />
+            가르치지 않습니다."
+          </h2>
+          <div className="h-1.5 w-20 bg-black" />
+          <p className="text-xl font-medium text-zinc-400 leading-relaxed break-keep">
+            단순한 지식 습득을 넘어, 당신의 막연한 불안감을 <span className="text-black font-bold">'지원서 제출'</span>이라는 수치화된 결과로 치환합니다.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { label: '실행률', value: '94.2%', icon: <Zap size={20}/> },
+            { label: '평균 지원수', value: '15건+', icon: <Target size={20}/> },
+            { label: '서류 합격률', value: '3.2배↑', icon: <BarChart3 size={20}/> },
+            { label: '네트워킹', value: '500명+', icon: <Users size={20}/> },
+          ].map((stat, i) => (
+            <div key={i} className="p-8 bg-white rounded-[32px] border border-black/5 shadow-2xl shadow-black/[0.02] flex flex-col justify-between aspect-square hover:border-black/10 transition-colors">
+              <div className="text-zinc-300">{stat.icon}</div>
+              <div>
+                <div className="text-3xl font-black mb-1">{stat.value}</div>
+                <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{stat.label}</div>
               </div>
             </div>
-          </section>
+          ))}
+        </div>
+      </div>
+    </section>
+  </div>
+);
 
-          {/* Current Status Comparison */}
-          <section className="py-24 px-6 bg-gray-50 border-b border-black">
-            <div className="max-w-5xl mx-auto">
-              <p className="font-black text-sm mb-10 border-l-4 border-black pl-3 italic text-red-600">지금 왜 시작해야 하는가: 공백기가 길어질수록 당신의 몸값은 낮아집니다.</p>
-              <div className="grid md:grid-cols-2 gap-0 border border-black shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] bg-white">
-                <div className="p-10 border-b md:border-b-0 md:border-r border-black">
-                  <span className="text-xs font-bold text-red-500 uppercase tracking-widest mb-4 block">Current Status</span>
-                  <h3 className="text-2xl font-black mb-4 italic">"준비가 덜 된 것 같아서 지원을 못 하겠어요."</h3>
-                  <p className="text-gray-500 font-bold tracking-tight">지방대 컴공 전공생 A님 - 지원 횟수 0회</p>
-                </div>
-                <div className="p-10 bg-black text-white">
-                  <span className="text-xs font-bold text-green-400 uppercase tracking-widest mb-4 block">CMC After 4 Weeks</span>
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="px-2 py-1 bg-green-500 text-black text-xs font-black">PASS</span>
-                    <h3 className="text-2xl font-black text-green-400 italic">"4주 만에 12개 기업 지원 완료, 면접 2곳 확정"</h3>
-                  </div>
-                  <p className="text-gray-400 font-bold tracking-tight">방법론 학습 → 실행 근육 형성 → 결과 도출</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Assessment Section */}
-          <section className="py-32 px-6 border-b border-black">
-            <div className="max-w-4xl mx-auto text-center">
-              <p className="font-black text-sm mb-4 border-l-4 border-black pl-3 mx-auto w-fit uppercase tracking-tighter">취업 시장 자생력 판정</p>
-              <h2 className="text-4xl md:text-5xl font-black mb-16 tracking-tight break-keep leading-tight">당신이 왜 여태껏 멈춰 있었는지<br />3분 안에 판정해 드립니다.</h2>
-              <div className="grid md:grid-cols-2 gap-8 text-left mb-12">
-                <div className="p-8 border-2 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                  <p className="font-black text-lg mb-6 leading-tight">1. 내 직무 역량을 전공자가 아닌 사람에게 1분 안에 설명할 수 있나요?</p>
-                  <div className="flex flex-col gap-2 text-xs font-bold text-gray-400">
-                    <span className="flex items-center gap-2"><div className="w-1 h-1 bg-gray-400"></div> 네, 가능함</span>
-                    <span className="flex items-center gap-2"><div className="w-1 h-1 bg-gray-400"></div> 아니오, 막막함</span>
-                  </div>
-                </div>
-                <div className="p-8 border-2 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                  <p className="font-black text-lg mb-6 leading-tight">2. 최근 1주일간 지원하고 싶은 공고를 5개 이상 발견했나요?</p>
-                  <div className="flex flex-col gap-2 text-xs font-bold text-gray-400">
-                    <span className="flex items-center gap-2"><div className="w-1 h-1 bg-gray-400"></div> 네, 리스트업함</span>
-                    <span className="flex items-center gap-2"><div className="w-1 h-1 bg-gray-400"></div> 아니오/방법 모름</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="max-w-2xl mx-auto bg-gray-50 border border-black p-6 mb-16 text-left">
-                <p className="font-black text-xs uppercase tracking-widest mb-4 border-b border-black pb-2">판정 기준 안내</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[11px] font-bold">
-                  <div className="flex items-start gap-2"><span className="text-green-600">● PASS:</span> 실행력 준비 완료. 바로 지원 트랙 가동 가능.</div>
-                  <div className="flex items-start gap-2"><span className="text-yellow-600">● HOLD:</span> 방법론적 이해 필요. CMC 가이드 우선 학습 권장.</div>
-                  <div className="flex items-start gap-2"><span className="text-red-600">● FAIL:</span> 마인드셋 재설정 필요. 기초 실행 근육부터 설계.</div>
-                </div>
-              </div>
-
-              <button onClick={resetTest} className="bg-black text-white px-16 py-6 font-black text-2xl hover:bg-gray-800 transition-all active:scale-95 shadow-[12px_12px_0px_0px_rgba(0,0,0,0.1)]">
-                판정 결과 및 다음 액션 받기
-              </button>
-            </div>
-          </section>
-
-          {/* Problem Definition */}
-          <section id="intro" className="py-32 px-6 bg-black text-white overflow-hidden relative">
-            <div className="max-w-5xl mx-auto relative z-10">
-              <span className="text-xs font-bold tracking-[0.3em] uppercase mb-8 block text-gray-500">Problem Definition</span>
-              <h2 className="text-6xl md:text-8xl font-black mb-24 leading-[0.9] tracking-tighter italic">
-                취업판이<br />실패하도록 설계된 <span className="text-red-600 underline decoration-white">이유</span> <span className="text-red-600">!</span>
-              </h2>
-              <div className="grid md:grid-cols-2 gap-20">
-                <div className="relative">
-                  <span className="text-7xl font-black absolute -top-12 -left-6 text-white/5 italic">!</span>
-                  <h3 className="text-3xl font-black mb-8 italic">지식은 넘치지만<br />방법은 모릅니다.</h3>
-                  <p className="text-gray-400 text-lg leading-relaxed break-keep font-medium">
-                    정보가 부족해서 취업이 안 되는 게 아닙니다. 이력서 '어떻게' 한 줄을 시작하고, 지원 버튼을 '언제' 눌러야 할지 모르는 <strong>방법론적 문맹</strong>이 본질입니다.
-                  </p>
-                </div>
-                <div className="relative">
-                  <span className="text-7xl font-black absolute -top-12 -left-6 text-white/5 italic">!</span>
-                  <h3 className="text-3xl font-black mb-8 italic">왜 결과 중심 구조인가?</h3>
-                  <p className="text-gray-400 text-lg leading-relaxed break-keep font-medium">
-                    배움만으로는 취업이 되지 않습니다. CMC는 교육기관이 아닌 <strong>'결과 생산 공장'</strong>입니다. 1개월이라는 압축된 기간 동안 실제 지원과 결과 도출에만 집중합니다.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-32 pt-20 border-t border-white/20">
-                <h4 className="text-sm font-black uppercase tracking-[0.4em] mb-12 text-center italic">CMC 프로그램 운영 원칙</h4>
-                <div className="grid md:grid-cols-3 gap-8 text-center">
-                  {[
-                    { num: "01", text: "행동 없는 지식은 쓰레기다. (80% 실행 비율)" },
-                    { num: "02", text: "동료의 속도가 나의 데드라인이 된다." },
-                    { num: "03", text: "한 달 뒤, 당신의 손엔 실제 지원 이력이 남아야 한다." }
-                  ].map((p, i) => (
-                    <div key={i} className="p-10 border border-white/30 hover:bg-white hover:text-black transition-all group">
-                      <p className="text-xs font-bold mb-4 opacity-50 group-hover:opacity-100 italic tracking-widest">Principle {p.num}</p>
-                      <p className="text-lg font-black break-keep">{p.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Execution System */}
-          <section id="system" className="py-32 px-6 border-b border-black bg-white">
-            <div className="max-w-6xl mx-auto">
-              <div className="text-center mb-24">
-                <h2 className="text-5xl md:text-7xl font-black mb-6 tracking-tighter italic">의지에 맡기지 않는<br />결과 생산 시스템</h2>
-                <p className="text-xl font-bold text-gray-400 italic">지연과 이탈을 원천 차단하는 강력한 실행 로직</p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-px bg-black border border-black shadow-[30px_30px_0px_0px_rgba(0,0,0,0.05)]">
-                {[
-                  { title: "날짜 기반 구조", desc: "\"언젠가 하겠다\"는 없습니다. 정해진 날짜, 정해진 시간까지 결과물을 제출해야만 다음 단계가 열립니다.", icon: <Clock /> },
-                  { title: "결과 없는 행동 제거", desc: "강의 시청, 단순 자료 조사는 행동이 아닙니다. 이력서 업데이트, 실제 지원 완료만이 유효한 행동으로 인정됩니다.", icon: <Target /> },
-                  { title: "미제출 시 제한", desc: "데드라인을 넘기면 스쿼드 활동 및 자료 접근이 즉각 제한됩니다. 끝까지 갈 수밖에 없는 강력한 데드라인.", icon: <Lock /> },
-                  { title: "실행 루틴 각인", desc: "4주간 반복되는 지원 루틴은 수료 후에도 혼자서 취업 준비를 지속할 수 있는 '자생력'을 만듭니다.", icon: <RefreshCcw /> }
-                ].map((s, i) => (
-                  <div key={i} className="bg-white p-12 hover:bg-gray-50 transition-all">
-                    <div className="w-12 h-12 bg-black text-white flex items-center justify-center mb-8">{s.icon}</div>
-                    <h4 className="text-2xl font-black mb-4 italic underline decoration-4 underline-offset-4">{s.title}</h4>
-                    <p className="text-gray-500 font-bold leading-relaxed break-keep">{s.desc}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-32 grid md:grid-cols-4 gap-8">
-                {[
-                  { label: "소그룹 스쿼드", desc: "5인 1조 밀착 관리. 서로가 서로의 페이스메이커가 됩니다.", icon: <Users /> },
-                  { label: "제출 공개", desc: "동료의 이력서와 지원 현황을 실시간 확인하며 자극받습니다.", icon: <Unlock /> },
-                  { label: "결과 비교", desc: "전체 참여자 대비 나의 실행 위치를 데이터로 확인합니다.", icon: <BarChart3 /> },
-                  { label: "이탈 방지", desc: "혼자라면 포기했을 지점, 팀의 압박이 당신을 밀어줍니다.", icon: <AlertTriangle /> }
-                ].map((p, i) => (
-                  <div key={i} className="text-center">
-                    <div className="mx-auto w-16 h-16 border-2 border-black rounded-full flex items-center justify-center mb-6 hover:bg-black hover:text-white transition-all cursor-default">
-                        {p.icon}
-                    </div>
-                    <h5 className="font-black mb-3">{p.label}</h5>
-                    <p className="text-xs text-gray-500 font-bold leading-relaxed break-keep">{p.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Peer Learning */}
-          <section className="py-32 px-6 bg-gray-50 border-b border-black">
-            <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-20">
-              <div className="flex-1">
-                <span className="text-xs font-black bg-black text-white px-3 py-1 mb-6 inline-block uppercase tracking-widest">Peer-Learning Structure</span>
-                <h2 className="text-5xl font-black mb-8 leading-tight tracking-tighter">혼자 하면 '준비'만 하다가 끝납니다.<br />함께 하면 <span className="italic underline decoration-8 underline-offset-4 decoration-black/10 text-red-600">'지원'까지</span> 갑니다.</h2>
-                <p className="text-lg text-gray-500 font-bold leading-relaxed mb-10 break-keep">
-                  취업은 마라톤입니다. 혼자 준비하는 사람은 자기 객관화가 되지 않고, 금방 지칩니다. CMC는 동료의 속도를 나의 속도로 치환하는 시스템을 제공합니다.
-                </p>
-                <ul className="space-y-4 font-black italic">
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-green-500" /> 다른 사람은 어떤 공고를 보는지 실시간 공유</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-green-500" /> 동료의 피드백으로 완성되는 이력서의 날카로움</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="text-green-500" /> 주간 랭킹 시스템으로 고취되는 건강한 경쟁심</li>
-                </ul>
-              </div>
-              <div className="w-full md:w-1/3 aspect-square bg-white border-4 border-black shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center">
-                <div className="text-center">
-                    <TrendingUp size={100} strokeWidth={3} className="mx-auto mb-4" />
-                    <p className="text-3xl font-black italic">SPEED UP</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Roadmap */}
-          <section id="curriculum" className="py-32 px-6 border-b border-black">
-            <div className="max-w-5xl mx-auto">
-              <div className="text-center mb-24">
-                <h2 className="text-5xl font-black mb-6 tracking-tight italic">압축적인 4주간의 실행 로드맵</h2>
-                <p className="text-xl font-bold text-gray-400 italic">주 3회 운영, 결과가 나올 수밖에 없는 구조적 흐름</p>
-              </div>
-
-              <div className="relative space-y-12">
-                <div className="absolute top-0 bottom-0 left-[2.45rem] md:left-1/2 w-1 bg-black/5 -translate-x-1/2 hidden md:block"></div>
-                {[
-                  { week: "Week 01", title: "취업 문법 재구축", sub: "직무 역량 추출 & 이력서 제로베이스 설계", details: ["• 월: 나의 전공/경험 데이터화", "• 수: 기업이 원하는 언어로 번역", "• 금: 이력서 1차 본 완성 (PASS 기준)"] },
-                  { week: "Week 02", title: "타겟팅 & 엔진 가동", sub: "채용 시장 분석 & 플랫폼 지원 루트 설계", details: ["• 월: 나에게 맞는 타겟 기업 20곳 리스트업", "• 수: 공고 속 핵심 키워드 매칭", "• 금: 첫 번째 실전 지원 완료"] },
-                  { week: "Week 03", title: "고속 실행 (Full-Support)", sub: "주간 3회 이상 지원 루틴 완전 정착", details: ["• 월/수/금: 실전 지원 반복", "• 중간 점검: 서류 피드백 반영", "• 목표: 누적 지원 8건 달성"] },
-                  { week: "Week 04", title: "결과 최적화 & 종료", sub: "면접 준비 산출물 & 자생력 시스템 이양", details: ["• 월: 면접 답변 논리 구조 설계", "• 수: 최종 지원 데이터 백업", "• 금: 수료 및 홀로서기 선언"] }
-                ].map((item, idx) => (
-                  <div key={idx} className={`relative flex flex-col md:flex-row items-center gap-12 ${idx % 2 !== 0 ? 'md:flex-row-reverse' : ''}`}>
-                    <div className="flex-1 w-full bg-white p-10 border-2 border-black shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-5px] transition-all">
-                      <span className="text-3xl font-black italic text-black/10 block mb-2">{item.week}</span>
-                      <h4 className="text-2xl font-black mb-2 italic underline decoration-gray-200 underline-offset-8">{item.title}</h4>
-                      <p className="text-sm font-bold text-gray-400 mb-6 uppercase tracking-tighter">{item.sub}</p>
-                      <div className="space-y-2 text-sm font-bold text-gray-600 bg-gray-50 p-6">
-                        {item.details.map((d, i) => <p key={i}>{d}</p>)}
-                      </div>
-                    </div>
-                    <div className="z-10 w-20 h-20 rounded-full bg-black border-8 border-white text-white flex items-center justify-center font-black italic text-xl shadow-lg hidden md:flex">
-                        {idx + 1}
-                    </div>
-                    <div className="flex-1 hidden md:block"></div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-20 p-8 border border-black bg-gray-50 text-center font-black italic text-sm">
-                ※ 월 종료 기준: 누적 지원 12건 이상 + 수정된 이력서 1종 + 면접 대비 리스트
-              </div>
-            </div>
-          </section>
-
-          {/* Data Proof */}
-          <section id="data" className="py-32 px-6 bg-black text-white">
-            <div className="max-w-6xl mx-auto">
-              <div className="text-center mb-24">
-                <h2 className="text-5xl font-black mb-6 tracking-tight italic">우리는 데이터로 증명합니다</h2>
-                <p className="text-xl font-bold text-gray-500 italic">실행을 멈추지 않는 이들의 결과 지표</p>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-12 mb-32">
-                {[
-                  { val: "92.4%", label: "4주 실행 유지율" },
-                  { val: "15.2회", label: "참여자 평균 지원 횟수" },
-                  { val: "41.0%", label: "서류 통과 진입률" },
-                  { val: "3.2배", label: "참여 전 대비 지원량 상승" }
-                ].map((d, i) => (
-                  <div key={i} className="text-center">
-                    <p className="text-5xl md:text-7xl font-black mb-4 tracking-tighter italic text-green-400">{d.val}</p>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{d.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* User Journey */}
-              <div className="bg-white/5 p-12 border border-white/10 text-center">
-                <p className="text-xs font-black uppercase tracking-[0.5em] mb-16 opacity-30 italic">결과 발생 흐름 (User Journey)</p>
-                <div className="flex flex-col md:flex-row justify-between items-center gap-12 relative">
-                    <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-white/10 -translate-y-1/2 hidden md:block"></div>
-                    {[
-                        { step: "START", desc: "막막함/실행0" },
-                        { step: "WEEK 2", desc: "첫 지원/방법 습득" },
-                        { step: "FINISH", desc: "루틴화/결과 도출" }
-                    ].map((s, i) => (
-                        <div key={i} className="relative z-10 bg-black px-8">
-                            <p className="text-3xl font-black italic mb-2 tracking-tighter">{s.step}</p>
-                            <p className="text-sm font-bold text-gray-500">{s.desc}</p>
-                        </div>
-                    ))}
-                </div>
-              </div>
-
-              {/* Director Message */}
-              <div className="mt-40 grid md:grid-cols-2 gap-20 items-center">
-                <div className="p-1 border border-white/20 aspect-[3/4] bg-white/5 flex items-center justify-center relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60 z-10"></div>
-                    <div className="z-20 absolute bottom-10 left-10 text-left">
-                        <p className="text-2xl font-black italic mb-1">전윤석 디렉터</p>
-                        <p className="text-xs font-bold text-gray-400">"취업은 개인의 역량이 아닌 시스템의 힘입니다."</p>
-                        <p className="text-[10px] text-green-500 font-bold mt-2">M사 취업률 전국 1위 달성 사례자</p>
-                    </div>
-                    <Users size={200} className="opacity-10 group-hover:scale-110 transition-transform duration-1000" />
-                </div>
-                <div className="space-y-8">
-                  <span className="text-xs font-black italic text-gray-500 tracking-widest">Designer's Message</span>
-                  <h3 className="text-4xl font-black italic leading-tight underline decoration-white decoration-4 underline-offset-8">기존 취업 교육과의<br />결정적 차이를 만듭니다.</h3>
-                  <p className="text-gray-400 font-medium leading-relaxed break-keep">
-                    수천 명의 취업 준비생을 만나며 깨달은 것은, 그들이 못하는 것이 아니라 <strong>'시작하는 방법'</strong>을 모른다는 사실이었습니다. 특히 기술적 역량이 뛰어난 컴공 전공자나 열정 있는 지방대생들이 '취업 문법'을 몰라 멈춰있는 모습이 가장 안타까웠습니다.
-                  </p>
-                  <p className="text-gray-400 font-medium leading-relaxed break-keep">
-                    CMC는 그 막막함을 걷어내고, 무조건 지원이라는 결과값까지 도달하게 만드는 시스템입니다. 당신이 지방에 있든, 첫 취업이든 상관없습니다. 이 구조 안으로 들어오면 결과는 자동으로 생산됩니다.
-                  </p>
-                  <div className="p-8 border-l-4 border-green-500 bg-white/5 text-xl font-black italic italic leading-relaxed break-keep">
-                    "우리는 당신이 합격할 때까지 기다리지 않습니다. 합격할 수밖에 없는 행동을 지금 즉시 하게 만듭니다."
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Pricing Comparison */}
-          <section id="price" className="py-32 px-6 border-b border-black">
-            <div className="max-w-6xl mx-auto">
-              <div className="text-center mb-24">
-                <h2 className="text-5xl font-black mb-6 tracking-tight italic">비교할 수 없는 압도적 가치</h2>
-                <p className="text-xl font-bold text-gray-400 italic">우리가 이 가격에 이 모든 시스템을 제공할 수 있는 이유</p>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-0 border border-black">
-                <div className="p-10 border-b md:border-b-0 md:border-r border-black bg-gray-50 opacity-60">
-                  <h4 className="font-black text-xl mb-2">고가 취업 컨설팅</h4>
-                  <p className="text-sm font-bold text-gray-400 mb-8 tracking-tighter">200~300만 원대</p>
-                  <ul className="space-y-4 text-xs font-bold text-gray-500">
-                    <li className="flex items-start gap-2">• 대리 작성 위주 (자생력 0)</li>
-                    <li className="flex items-start gap-2">• 1:1 상담 위주의 느린 속도</li>
-                    <li className="flex items-start gap-2">• 의존적 참여에 따른 성장 부재</li>
-                  </ul>
-                </div>
-                <div className="p-12 bg-black text-white relative transform md:scale-110 shadow-2xl z-10 border-x-2 border-black text-center">
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-green-500 text-black px-4 py-1 text-[10px] font-black uppercase tracking-widest">Practical Solution</span>
-                  <h4 className="font-black text-2xl mb-2">CMC JOB TRACK (31기)</h4>
-                  <p className="text-4xl font-black mb-10 tracking-tighter text-green-400 italic">149,000원</p>
-                  <ul className="space-y-4 text-sm font-black mb-12 italic text-left">
-                    <li className="flex items-start gap-2">✅ 제로베이스 지원 가이드</li>
-                    <li className="flex items-start gap-2">✅ 4주 강제 실행 시스템</li>
-                    <li className="flex items-start gap-2">✅ 스쿼드 밀착 관리 & 피드백</li>
-                    <li className="flex items-start gap-2">✅ 자생적 취업 루틴 형성</li>
-                  </ul>
-                  <button onClick={handleJoinClick} className="w-full bg-white text-black py-5 font-black text-lg hover:bg-gray-100 transition-all active:scale-95 shadow-[10px_10px_0px_0px_rgba(255,255,255,0.1)]">
-                    이 가격으로 결과 만들기
-                  </button>
-                </div>
-                <div className="p-10 border-t md:border-t-0 md:border-l border-black bg-gray-50 opacity-60">
-                  <h4 className="font-black text-xl mb-2">일반 온라인 강의</h4>
-                  <p className="text-sm font-bold text-gray-400 mb-8 tracking-tighter">10~20만 원대</p>
-                  <ul className="space-y-4 text-xs font-bold text-gray-500">
-                    <li className="flex items-start gap-2">• 단순 시청 (실행률 10% 미만)</li>
-                    <li className="flex items-start gap-2">• 강제성 및 사후 관리 부재</li>
-                    <li className="flex items-start gap-2">• 실제 지원 연결 지점 없음</li>
-                  </ul>
-                </div>
-              </div>
-              
-              <div className="mt-24 max-w-3xl mx-auto text-center">
-                <p className="text-lg font-bold text-gray-500 leading-relaxed italic break-keep">
-                    "우리는 비싼 개인의 시간을 파는 것이 아닙니다. 기술과 스쿼드 시스템을 통해 <strong>실행에 필요한 모든 비용을 효율화</strong>했습니다.<br />
-                    당신이 내는 비용은 교육비가 아니라, '성공할 수밖에 없는 환경'을 소유하는 비용입니다."
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* FAQ Section */}
-          <section id="faq" className="py-32 px-6 bg-white border-b border-black">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-24">
-                <h2 className="text-5xl font-black mb-6 tracking-tight italic">자주 묻는 질문</h2>
-                <p className="text-xl font-bold text-gray-400 italic">궁금한 점을 확인하세요.</p>
-              </div>
-              <div className="space-y-4">
-                {[
-                  { q: "정말 결과가 나오나요?", a: "네. CMC는 92% 이상의 수료생들이 4주 안에 평균 12회 이상의 실제 지원을 완료합니다. 지원이 결과의 시작입니다." },
-                  { q: " 누구에게나 가능한가요?", a: "취업의 기초 방법론을 모르는 분들, 지방에서 정보가 부족한 분들, 실행력이 필요한 전공자 모두에게 최적화되어 있습니다." },
-                  { q: "실패하면 어떻게 되나요?", a: "미션을 지연하거나 포기할 경우 시스템 접근이 제한됩니다. 이 강력한 제한 구조가 당신을 실패하지 않게 만듭니다." }
-                ].map((f, i) => (
-                  <details key={i} className="group border border-black bg-white">
-                    <summary className="p-8 font-black text-xl cursor-pointer list-none flex justify-between items-center hover:bg-black hover:text-white transition-all">
-                      <span>Q. {f.q}</span>
-                      <ChevronRight className="group-open:rotate-90 transition-transform" />
-                    </summary>
-                    <div className="p-8 border-t border-black bg-gray-50 font-bold text-gray-600 leading-relaxed italic">
-                      {f.a}
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Final Call to Action */}
-          <section className="py-32 px-6 bg-black text-white text-center">
-            <div className="max-w-4xl mx-auto">
-              <p className="text-xs font-black uppercase tracking-[0.6em] mb-12 opacity-40 italic underline decoration-white">CORE MANIFESTO</p>
-              <h2 className="text-4xl md:text-6xl font-black mb-12 leading-tight tracking-tighter italic">
-                "우리는 당신의 취업을 보장하지 않습니다.<br />
-                대신, 취업을 실제로 <span className="text-red-600 underline decoration-red-600">시작하지 못하는 상태</span>에서는<br />
-                절대 끝나지 않게 만듭니다."
-              </h2>
-              <div className="flex flex-col items-center gap-6">
-                <button onClick={handleJoinClick} className="bg-white text-black px-16 py-6 font-black text-2xl hover:bg-gray-200 transition-all active:scale-95 shadow-[12px_12px_0px_0px_rgba(255,255,255,0.1)]">
-                  지금 참여 신청하기
-                </button>
-                <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    <span className="cursor-pointer hover:text-white transition-colors">환불 정책 확인</span>
-                    <span className="opacity-40 select-none">|</span>
-                    <span>참여 신청 완료 후 24시간 이내에 판정 가이드 발송</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Footer */}
-          <footer className="py-24 px-6 border-t border-black bg-white">
-            <div className="max-w-7xl mx-auto">
-              <div className="grid md:grid-cols-4 gap-12 mb-20">
-                <div className="col-span-1 md:col-span-2">
-                  <h3 className="text-4xl font-black italic tracking-tighter mb-6">CMC Track</h3>
-                  <p className="text-xs font-bold text-gray-400 mb-8 tracking-widest leading-loose uppercase">
-                    WE DESIGN YOUR FIRST STEP INTO THE JOB MARKET.<br />
-                    NOT JUST EDUCATION, BUT AN EXECUTION FACTORY.
-                  </p>
-                  <div className="flex gap-4 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                    <a href="#" className="hover:text-black">이용약관</a>
-                    <a href="#" className="hover:text-black">개인정보 처리방침</a>
-                    <a href="#" className="hover:text-black">데이터 보호 정책</a>
-                  </div>
-                </div>
-                <div>
-                  <h5 className="font-black mb-6 uppercase tracking-widest text-xs italic opacity-40">Navigation</h5>
-                  <ul className="space-y-3 text-xs font-black uppercase tracking-tighter">
-                    <li><a href="#" className="hover:underline">HOME</a></li>
-                    <li><a href="#intro" className="hover:underline">ABOUT CMC</a></li>
-                    <li><a href="#system" className="hover:underline">EXECUTION SYSTEM</a></li>
-                    <li><a href="#price" className="hover:underline">PRICING</a></li>
-                  </ul>
-                </div>
-                <div>
-                  <h5 className="font-black mb-6 uppercase tracking-widest text-xs italic opacity-40">Contact</h5>
-                  <ul className="space-y-3 text-xs font-black tracking-tighter">
-                    <li className="flex items-center gap-2"><MessageCircle size={14}/> 문의하기: @cmc_track (카톡)</li>
-                    <li className="flex items-center gap-2"><ExternalLink size={14}/> 제휴문의: biz@cmc.club</li>
-                    <li className="text-gray-400 opacity-60">운영시간: 10:00 - 18:00 (월~금)</li>
-                  </ul>
-                </div>
-              </div>
-              <div className="flex flex-col md:flex-row justify-between items-end gap-8 pt-12 border-t border-black/5">
-                <p className="text-[10px] font-black text-gray-300 uppercase italic">© 2025 CHANGEMAKERS CLUB. DESIGNED BY STRUCTURE FIRST, ACTION ALWAYS.</p>
-                <div className="flex gap-4">
-                    <div className="w-10 h-10 bg-black rounded-sm"></div>
-                    <div className="w-10 h-10 bg-gray-100 rounded-sm"></div>
-                </div>
-              </div>
-            </div>
-          </footer>
-        </main>
-      )}
-
-      {/* [TEST VIEW] */}
-      {view === 'test' && (
-        <div className="max-w-2xl mx-auto py-32 px-6 animate-in fade-in duration-500">
-          <button onClick={goToLanding} className="mb-12 text-xs font-bold flex items-center gap-2 hover:underline">
-            <X size={14}/> 테스트 중단
+const DiagnosisSection = ({ step, currentQ, onStart, onAnswer, progress, result, onReset, onJoin }) => {
+  if (step === 'intro') {
+    return (
+      <div className="max-w-2xl mx-auto py-32 px-6 animate-in fade-in slide-in-from-bottom-4">
+        <div className="bg-white rounded-[40px] p-16 shadow-2xl shadow-black/[0.05] border border-black/5 text-center space-y-10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
+            <ClipboardCheck size={180} />
+          </div>
+          <div className="space-y-4">
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Diagnostic Tool</span>
+            <h1 className="text-6xl font-black italic tracking-tighter">3분 진단</h1>
+            <p className="text-zinc-500 font-medium italic">당신은 지금 당장 시장에 투입될 준비가 되었습니까?</p>
+          </div>
+          <div className="h-[1px] bg-zinc-100" />
+          <ul className="text-left space-y-5">
+            {[
+              "직무 역량의 시장 언어화 지수 측정",
+              "지원 프로세스 장애 요인 발견",
+              "CMC 적합성 및 맞춤형 로드맵 제안"
+            ].map((text, i) => (
+              <li key={i} className="flex gap-4 items-center text-sm font-bold text-zinc-600 italic">
+                <div className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-black">{i+1}</div>
+                {text}
+              </li>
+            ))}
+          </ul>
+          <button onClick={onStart} className="w-full bg-black text-white py-6 rounded-2xl text-xl font-black hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 group shadow-xl shadow-black/10">
+            진단 시작하기 <ChevronRight className="group-hover:translate-x-1 transition-transform" />
           </button>
-          <div className="mb-12">
-            <div className="h-2 bg-gray-100 w-full mb-4 rounded-full overflow-hidden">
-              <div className="h-full bg-black transition-all duration-500" style={{ width: `${((currentQ + 1) / questions.length) * 100}%` }}></div>
-            </div>
-            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-gray-400">
-                <span>Assessment Phase</span>
-                <span>{currentQ + 1} / {questions.length}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'testing') {
+    const q = QUESTIONS[currentQ];
+    return (
+      <div className="max-w-2xl mx-auto py-32 px-6">
+        <div className="space-y-12">
+          <div className="flex justify-between items-center px-2">
+            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">QUESTION {currentQ + 1} / {QUESTIONS.length}</span>
+            <div className="h-1.5 w-40 bg-zinc-100 rounded-full overflow-hidden shadow-inner">
+              <div className="h-full bg-black transition-all duration-500" style={{width: `${((currentQ + 1) / QUESTIONS.length) * 100}%`}}></div>
             </div>
           </div>
-          <h2 className="text-4xl font-black mb-12 tracking-tight break-keep leading-tight">{questions[currentQ].q}</h2>
+          <h2 className="text-4xl font-black tracking-tighter leading-tight italic break-keep bg-gradient-to-r from-black to-zinc-500 bg-clip-text text-transparent min-h-[120px]">{q.q}</h2>
           <div className="grid gap-4">
-            {questions[currentQ].options.map((opt, i) => (
+            {q.options.map((opt, i) => (
               <button 
-                key={i}
-                onClick={() => handleAnswer(opt.tag)}
-                className="group flex items-center justify-between p-8 border-2 border-black font-black text-xl hover:bg-black hover:text-white transition-all active:scale-[0.98]"
+                key={i} 
+                onClick={() => onAnswer(opt.tag)}
+                className="p-10 bg-white border border-zinc-200 rounded-[30px] text-left font-black text-xl hover:border-black hover:shadow-2xl hover:shadow-black/[0.05] transition-all active:scale-[0.98] group flex justify-between items-center shadow-lg shadow-black/[0.01]"
               >
                 <span>{opt.t}</span>
-                <ChevronRight className="group-hover:translate-x-2 transition-transform" />
+                <div className="w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                  <ChevronRight size={18} />
+                </div>
               </button>
             ))}
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* [ANALYZING VIEW] */}
-      {view === 'analyzing' && (
-        <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6">
-          <div className="max-w-md w-full">
-            <div className="flex justify-center mb-12">
-                <div className="relative">
-                    <Cpu size={100} className="text-black animate-pulse" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <Activity size={40} className="text-gray-400" />
-                    </div>
+  if (step === 'analyzing') {
+    return (
+      <div className="max-w-2xl mx-auto py-56 px-6 text-center space-y-12 animate-pulse">
+        <div className="relative w-32 h-32 mx-auto">
+          <div className="absolute inset-0 border-4 border-zinc-100 rounded-full" />
+          <div className="absolute inset-0 border-4 border-black rounded-full animate-spin border-t-transparent" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Activity size={40} className="text-black" />
+          </div>
+        </div>
+        <div className="space-y-6">
+          <h2 className="text-3xl font-black italic tracking-tighter">데이터 시뮬레이션 중...</h2>
+          <div className="font-mono text-[11px] text-zinc-400 space-y-2 uppercase tracking-tighter">
+            <p className={`${progress > 20 ? 'text-black' : 'opacity-20'}`}>[SYSTEM] Scanning Career DNA...</p>
+            <p className={`${progress > 50 ? 'text-black' : 'opacity-20'}`}>[SYSTEM] Analyzing Market Fit...</p>
+            <p className={`${progress > 85 ? 'text-black' : 'opacity-20'}`}>[SYSTEM] Finalizing Report...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'result') {
+    return (
+      <div className="max-w-4xl mx-auto py-32 px-6">
+        <div className="bg-white rounded-[50px] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] border border-black/5 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+          <div className="bg-black p-16 text-white text-center space-y-4">
+            <span className="text-[10px] font-black uppercase tracking-[0.5em] opacity-50">Confidential Report</span>
+            <h1 className="text-7xl font-black italic tracking-tighter">진단 완료</h1>
+          </div>
+
+          <div className="p-16 space-y-20">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-12 border-b border-zinc-100 pb-20">
+              <div className="space-y-4">
+                <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">Candidate Status</p>
+                <div className="flex items-baseline gap-4">
+                  <h2 className={`text-9xl font-black italic tracking-tighter ${result.color}`}>{result.status}</h2>
+                  <div className="w-4 h-4 rounded-full bg-black animate-pulse shadow-[0_0_15px_rgba(0,0,0,0.3)]" />
                 </div>
+              </div>
+              <div className="max-w-sm space-y-6">
+                 <Quote className="text-zinc-100" size={48} fill="currentColor"/>
+                 <p className="text-2xl font-bold leading-tight italic text-zinc-800 break-keep">{result.desc}</p>
+              </div>
             </div>
-            <div className="space-y-6">
-              <div className={`flex items-center gap-4 transition-all duration-500 ${analysisStep >= 1 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${analysisStep > 1 ? 'bg-black text-white' : 'border-2 border-black'}`}>1</div>
-                <p className="font-black uppercase tracking-tighter">실행 패턴 데이터 추출 중...</p>
+
+            <div className="grid md:grid-cols-2 gap-10">
+              <div className="p-10 rounded-[40px] bg-zinc-50 space-y-6 border border-zinc-100 shadow-inner">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck size={20} className="text-zinc-400" />
+                  <h4 className="text-xs font-black uppercase tracking-widest">주요 강점</h4>
+                </div>
+                <p className="font-bold text-zinc-600 leading-relaxed italic break-keep">
+                  잠재적인 직무 지식은 충분하나 이를 시장의 가치로 변환하는 '트랜스레이션' 능력이 요구됩니다. 올바른 시스템만 받쳐준다면 폭발적인 지원이 가능한 상태입니다.
+                </p>
               </div>
-              <div className={`flex items-center gap-4 transition-all duration-500 ${analysisStep >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${analysisStep > 2 ? 'bg-black text-white' : 'border-2 border-black'}`}>2</div>
-                <p className="font-black uppercase tracking-tighter">방법론적 문맹률 자가 진단...</p>
+              <div className="p-10 rounded-[40px] bg-white border border-black/5 shadow-2xl shadow-black/[0.02] space-y-6">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle size={20} className="text-zinc-400" />
+                  <h4 className="text-xs font-black uppercase tracking-widest">취약 요인</h4>
+                </div>
+                <p className="font-bold text-zinc-600 leading-relaxed italic break-keep">
+                  '완벽하게 준비된 뒤에 지원하겠다'는 완벽주의적 함정이 가장 큰 리스크입니다. 지금 당장 결과물을 내놓고 피드백을 받아야 할 시점입니다.
+                </p>
               </div>
-              <div className={`flex items-center gap-4 transition-all duration-500 ${analysisStep >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${analysisStep > 3 ? 'bg-black text-white' : 'border-2 border-black'}`}>3</div>
-                <p className="font-black uppercase tracking-tighter">실행 마찰 계수 연산 중...</p>
+            </div>
+
+            <div className="bg-black text-white rounded-[40px] p-12 text-center space-y-10 shadow-2xl shadow-black/30">
+              <div className="space-y-3">
+                <h3 className="text-3xl font-black italic tracking-tight">당신을 위한 최적의 솔루션</h3>
+                <p className="text-zinc-400 font-bold uppercase tracking-widest text-[11px]">CMC 4-Week Job Track Admission</p>
               </div>
-              <div className={`flex items-center gap-4 transition-all duration-500 ${analysisStep >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${analysisStep > 4 ? 'bg-black text-white' : 'border-2 border-black'}`}>4</div>
-                <p className="font-black uppercase tracking-tighter">최종 분석 리포트 생성 완료.</p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button onClick={onJoin} className="flex-1 bg-white text-black py-6 rounded-2xl text-2xl font-black hover:bg-zinc-100 transition-all flex items-center justify-center gap-3 shadow-lg">
+                  리포트 소장 & 신청하기 <ArrowRight />
+                </button>
+                <button onClick={onReset} className="px-8 border border-white/20 rounded-2xl font-black hover:bg-white/10 transition-all flex items-center justify-center">
+                  <RotateCcw size={24} />
+                </button>
               </div>
             </div>
           </div>
         </div>
-      )}
-
-      {/* [RESULT VIEW] */}
-      {view === 'result' && resultData && (
-        <div className="bg-[#f0f0f0] min-h-screen py-12 px-4 md:py-20 md:px-6 font-mono">
-          <div className="max-w-4xl mx-auto bg-white border border-black shadow-[15px_15px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden">
-            <div className="bg-black text-white p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-black">
-              <div>
-                <h2 className="text-xl md:text-2xl font-black tracking-tighter flex items-center gap-2">
-                    <Terminal size={24} /> CMC_EXECUTION_ANALYSIS_FILE
-                </h2>
-                <div className="text-[10px] opacity-60 mt-2 font-bold uppercase tracking-widest flex flex-wrap gap-x-4">
-                    <span>ID: {reportId}</span>
-                    <span>ISSUED_BY: CMC_SYSTEM</span>
-                    <span>TIMESTAMP: {timestamp}</span>
-                </div>
-              </div>
-              <div className={`px-6 py-2 border-2 border-current font-black text-2xl italic ${resultData.color} bg-white/5 animate-pulse`}>
-                STATUS: {resultData.status}
-              </div>
-            </div>
-
-            <div className="p-6 md:p-12 space-y-16">
-              <section>
-                <div className="flex items-center gap-2 mb-8 text-sm font-black uppercase tracking-widest border-b-2 border-black pb-2 w-fit text-black">
-                  <FileText size={18} /> 01. EXECUTION_SUMMARY
-                </div>
-                <div className="flex flex-wrap gap-2 mb-10">
-                  {resultData.tags.map((tag, i) => (
-                    <span key={i} className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-black ${tag.includes('frozen') || tag.includes('low') || tag.includes('blind') || tag.includes('absent') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                        #{tag}
-                    </span>
-                  ))}
-                </div>
-                <div className="bg-black text-white p-8 rounded-sm relative overflow-hidden group">
-                    <Activity className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-150 transition-transform duration-1000" size={200} />
-                    <p className="text-xl md:text-2xl font-black leading-tight italic break-keep relative z-10">
-                        {resultData.status === 'FAIL' 
-                            ? "실행의 마찰력이 가속도를 완전히 압도하고 있습니다. 의지의 문제가 아닌 시스템 결함입니다."
-                            : resultData.status === 'HOLD'
-                            ? "실행을 위한 기초 근육은 존재하나, 마찰력이 가속도를 상쇄하고 있습니다."
-                            : "실행 엔진이 최적의 상태입니다. 지금 즉시 고부가가치 타겟에 화력을 집중하십시오."}
-                    </p>
-                </div>
-              </section>
-
-              <section>
-                <div className="flex items-center gap-2 mb-8 text-sm font-black uppercase tracking-widest border-b-2 border-black pb-2 w-fit text-black">
-                  <BarChart3 size={18} /> 02. FRICTION_METRICS
-                </div>
-                <div className="space-y-8">
-                    {[
-                        { label: 'Methodological Literacy (방법론적 이해도)', val: resultData.tags.filter(t => !t.includes('illiteracy') && !t.includes('blind')).length * 15 },
-                        { label: 'Execution Routine (실행 루틴성)', val: resultData.tags.filter(t => !t.includes('uninitialized')).length * 12 },
-                        { label: 'Feedback Receptivity (피드백 수용성)', val: resultData.tags.filter(t => !t.includes('defensive')).length * 14 },
-                        { label: 'Market Proactivity (시장 적극성)', val: resultData.tags.filter(t => !t.includes('blind') && !t.includes('absent')).length * 13 },
-                    ].map((m, idx) => (
-                        <div key={idx}>
-                            <div className="flex justify-between text-[11px] font-black mb-2 uppercase italic">
-                                <span>{m.label}</span>
-                                <span>{m.val}%</span>
-                            </div>
-                            <div className="h-4 bg-gray-100 border border-black overflow-hidden p-[2px]">
-                                <div className="h-full bg-black transition-all duration-1000 delay-500" style={{ width: `${m.val}%` }}></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-              </section>
-
-              <section className="grid md:grid-cols-2 gap-8">
-                <div className="border-l-4 border-black pl-6">
-                    <h4 className="font-black text-lg mb-4 italic uppercase">03. REASON_FOR_STAGNATION</h4>
-                    <div className="space-y-6 text-sm">
-                        <div>
-                            <p className="font-black mb-1 underline decoration-2">방법론적 문맹 (Methodological Blindness)</p>
-                            <p className="text-gray-500 font-bold leading-relaxed">지원 버튼을 언제, 어떻게 눌러야 하는지에 대한 기준점이 부재합니다. 정보 부족이 아니라 '절차'의 문제입니다.</p>
-                        </div>
-                        <div>
-                            <p className="font-black mb-1 underline decoration-2">루프 미형성 (Loop Malfunction)</p>
-                            <p className="text-gray-500 font-bold leading-relaxed">의지에 의존한 일회성 실행은 금방 지칩니다. 시스템화되지 않은 노력은 매몰 비용으로 작용 중입니다.</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="border-l-4 border-black pl-6 bg-gray-50 p-6">
-                    <h4 className="font-black text-lg mb-4 italic uppercase flex items-center gap-2"><Zap className="text-yellow-500" /> 04. NEXT_TRACK_CODE</h4>
-                    <div className="space-y-4">
-                        <div className="p-3 border border-black bg-white">
-                            <p className="text-[10px] font-bold text-gray-400">Track Code: ZB_GUIDE_V1</p>
-                            <p className="font-black text-sm uppercase">제로베이스 지원 가이드 활성화</p>
-                        </div>
-                        <div className="p-3 border border-black bg-white">
-                            <p className="text-[10px] font-bold text-gray-400">Track Code: TIME_LOCK_96H</p>
-                            <p className="font-black text-sm uppercase">강제 지원 데드라인 프로토콜</p>
-                        </div>
-                    </div>
-                </div>
-              </section>
-
-              <section className="bg-black text-white p-8">
-                <h4 className="font-black text-xl mb-8 italic flex items-center gap-3">
-                    <Target size={24} /> MANDATORY_ACTION_LIST (7 DAYS)
-                </h4>
-                <div className="space-y-4 font-bold tracking-tight">
-                  <div className="flex gap-4 border-b border-white/20 pb-3 italic">
-                    <span className="opacity-40">01.</span>
-                    <p>나의 전공/직무 경험 데이터 10개 핵심 키워드 추출 및 정의</p>
-                  </div>
-                  <div className="flex gap-4 border-b border-white/20 pb-3 italic">
-                    <span className="opacity-40">02.</span>
-                    <p>유사 도메인 타겟 공고 5개 수집 및 요구 역량 맵핑 완료</p>
-                  </div>
-                  <div className="flex gap-4 border-b border-white/20 pb-3 italic">
-                    <span className="opacity-40">03.</span>
-                    <p>완성도 타협 없는 이력서 본문(Body) 초안 강제 완성</p>
-                  </div>
-                </div>
-              </section>
-
-              <div className="pt-10 flex flex-col md:flex-row gap-4">
-                <button onClick={resetTest} className="flex-1 py-6 border-2 border-black font-black text-xl hover:bg-black hover:text-white transition-all flex items-center justify-center gap-2 group">
-                  <RotateCcw size={20} className="group-hover:rotate-[-180deg] transition-transform duration-500" /> 다시 판정하기
-                </button>
-                <button onClick={handleJoinClick} className="flex-1 py-6 bg-black text-white font-black text-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-3 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] active:scale-95 group">
-                  <Zap size={20} className="text-yellow-400 fill-yellow-400" /> 실행 시스템 활성화하기 (참여 신청)
-                </button>
-              </div>
-
-              <div className="flex justify-between items-center text-[10px] font-black text-gray-300 pt-10 border-t border-dashed border-gray-200 uppercase">
-                  <span>SYSTEM_REMARK: OPTIMIZATION_REQUIRED</span>
-                  <span className="cursor-pointer hover:text-black" onClick={goToLanding}>[ ESC_TO_HOMEPAGE ]</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
 };
+
+const CmcPage = () => (
+  <div className="max-w-[1000px] mx-auto py-40 px-6 space-y-40 animate-in fade-in duration-700">
+    <section className="space-y-16">
+      <div className="space-y-4">
+         <span className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-400">Brand Identity</span>
+         <h1 className="text-7xl font-black italic tracking-tighter leading-[0.9]">결과로 말하는<br />클럽, CMC.</h1>
+      </div>
+      <div className="grid md:grid-cols-[300px_1fr] gap-20 items-start">
+        <div className="h-full border-l-2 border-black pl-10">
+          <p className="text-xl font-black italic leading-tight text-zinc-600">"우리는 실행하지 않는 잠재력은 가치가 없다고 믿습니다."</p>
+        </div>
+        <div className="space-y-12">
+          <p className="text-2xl font-bold text-zinc-400 leading-relaxed italic break-keep">
+            CMC는 단순히 정보를 공유하는 곳이 아닙니다. 같은 목표를 가진 동료들이 모여 서로의 데드라인이 되어주는 <span className="text-black">'결과 생산 엔진'</span>입니다.
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+);
+
+const ProgramPage = () => (
+  <div className="max-w-[1200px] mx-auto py-40 px-6 space-y-32">
+    <div className="text-center space-y-4">
+      <h2 className="text-5xl font-black italic tracking-tighter uppercase">Infrastructure</h2>
+      <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">Shine Center & Execution Systems</p>
+    </div>
+    
+    <div className="grid md:grid-cols-2 gap-10">
+      <div className="bg-white rounded-[40px] p-16 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.05)] border border-black/5 flex flex-col justify-between aspect-square">
+        <div className="space-y-8">
+          <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center text-white shadow-xl shadow-black/20">
+            <Layout size={32} />
+          </div>
+          <h3 className="text-4xl font-black italic tracking-tight leading-tight">샤인 센터<br />(Shine Center)</h3>
+          <p className="text-zinc-400 font-bold leading-relaxed italic">
+            오프라인 몰입 환경과 온라인 협업 툴이 결합된 CMC만의 독자적인 실행 베이스캠프입니다.
+          </p>
+        </div>
+        <div className="pt-10 flex flex-wrap gap-3">
+          {["실시간 집계", "피어 리뷰", "디렉터 코칭"].map(tag => (
+            <span key={tag} className="px-4 py-2 bg-zinc-50 border border-zinc-100 rounded-full text-[11px] font-black uppercase tracking-widest text-zinc-400">{tag}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-zinc-900 rounded-[40px] p-16 shadow-2xl shadow-black/40 text-white flex flex-col justify-between aspect-square">
+        <div className="space-y-8">
+          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-black shadow-xl shadow-white/10">
+            <Activity size={32} />
+          </div>
+          <h3 className="text-4xl font-black italic tracking-tight leading-tight text-white">CMC 고속 엔진<br />(Execution Engine)</h3>
+          <p className="text-zinc-500 font-bold leading-relaxed italic">
+            개인의 루틴을 시스템화하고, 지원 현황을 데이터로 투명하게 공유하여 성과를 가속합니다.
+          </p>
+        </div>
+        <div className="pt-10 flex flex-wrap gap-3">
+          {["루틴 트래킹", "지원 로그", "성과 리포트"].map(tag => (
+            <span key={tag} className="px-4 py-2 bg-white/5 border border-white/10 rounded-full text-[11px] font-black uppercase tracking-widest text-zinc-500">{tag}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const CurriculumPage = () => (
+  <div className="max-w-[1000px] mx-auto py-40 px-6">
+    <div className="mb-32 space-y-4">
+      <h2 className="text-6xl font-black italic tracking-tighter uppercase">Roadmap</h2>
+      <p className="text-zinc-400 font-bold uppercase tracking-[0.3em] text-[10px]">4-Week Intensive Curriculum</p>
+    </div>
+    
+    <div className="space-y-12">
+      {[
+        { week: "01", title: "취업 문법 재정의", desc: "자신의 커리어를 시장이 원하는 '수익성 언어'로 재구성합니다. 1주 차에 완성하는 이력서의 뼈대.", tags: ["역량 추출", "포지셔닝"] },
+        { week: "02", title: "타겟팅 & 엔진 최적화", desc: "무분별한 지원이 아닌, 합격 확률이 높은 공고를 찾아내는 알고리즘과 지원 루트 확보.", tags: ["공고 탐색", "시장 분석"] },
+        { week: "03", title: "압도적 고속 실행", desc: "CMC의 강제 환경 속에서 주간 3회 이상의 실전 지원 루틴을 완전 체화합니다.", tags: ["실전 지원", "피드백 루프"] },
+        { week: "04", title: "결과 최적화 & 이양", desc: "면접 산출물 최종 점검 및 프로그램 종료 후에도 스스로 생존할 수 있는 시스템 이양.", tags: ["면접 대비", "자생력 확보"] }
+      ].map((item, i) => (
+        <div key={i} className="group relative bg-white rounded-[40px] p-12 border border-black/5 shadow-xl shadow-black/[0.02] hover:border-black transition-all hover:-translate-y-1">
+          <div className="flex flex-col md:flex-row gap-10 items-start">
+            <span className="text-7xl font-black italic text-zinc-100 group-hover:text-black transition-colors leading-none">{item.week}</span>
+            <div className="flex-1 space-y-6">
+               <h3 className="text-3xl font-black italic tracking-tight">{item.title}</h3>
+               <p className="text-zinc-400 font-bold leading-relaxed break-keep italic">{item.desc}</p>
+               <div className="flex gap-2">
+                 {item.tags.map(tag => (
+                   <span key={tag} className="px-3 py-1 bg-zinc-50 rounded-lg text-[10px] font-black text-zinc-300 border border-zinc-100 uppercase">{tag}</span>
+                 ))}
+               </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const StoryPage = () => (
+  <div className="max-w-[1200px] mx-auto py-40 px-6">
+    <div className="text-center mb-32 space-y-4">
+      <h2 className="text-5xl font-black italic tracking-tighter uppercase">Members</h2>
+      <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">Transformational Stories</p>
+    </div>
+    
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+      {[
+        { name: "K님", result: "국내 대형 에이전시 최종 합격", before: "6개월간 지원 0건, 완벽주의의 늪", after: "4주 차에 지원 12건, 동시 합격 2곳", tag: "디자이너" },
+        { name: "J님", result: "IT 유니콘 기업 서류 통과", before: "자신의 역량에 대한 확신 부재", after: "역량 언어화 후 서류 합격률 400% 상승", tag: "PM" }
+      ].map((story, i) => (
+        <div key={i} className="bg-white rounded-[50px] p-16 border border-black/5 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.08)] space-y-10 group transition-all">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <h4 className="text-2xl font-black italic">{story.name}</h4>
+              <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">{story.tag}</span>
+            </div>
+            <span className="px-4 py-1.5 bg-black text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg shadow-black/10">Case Study</span>
+          </div>
+          <div className="space-y-8">
+            <div className="space-y-2">
+              <div className="text-[10px] font-black text-zinc-200 uppercase tracking-tighter">Challenge</div>
+              <p className="font-bold text-zinc-400 italic break-keep leading-relaxed">"{story.before}"</p>
+            </div>
+            <div className="p-8 bg-zinc-50 rounded-[30px] border border-zinc-100 shadow-inner">
+               <div className="text-[10px] font-black text-zinc-300 uppercase mb-2">Outcome</div>
+               <p className="text-xl font-black italic tracking-tight text-black">{story.result}</p>
+               <p className="text-sm font-bold text-zinc-400 mt-2 italic">{story.after}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const FaqPage = () => (
+  <div className="max-w-[800px] mx-auto py-40 px-6">
+    <div className="text-center mb-32 space-y-4">
+      <h2 className="text-5xl font-black italic tracking-tighter uppercase">FAQ</h2>
+      <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">Common Questions</p>
+    </div>
+    
+    <div className="space-y-6">
+      {[
+        { q: "정말 한 달 만에 지원이 가능한가요?", a: "네. CMC의 시스템은 주차별 산출물이 지원 공고와 직결되도록 설계되어 있습니다. 3주차부터는 강제적으로 지원 루틴이 가동됩니다." },
+        { q: "프로그램 참여 시간은 어느 정도인가요?", a: "기존의 업무나 학업과 병행이 가능합니다. 하지만 주간 미션과 데드라인을 지키기 위한 최소한의 몰입 시간은 필수적입니다." },
+        { q: "합격을 보장하나요?", a: "아니오. 하지만 합격할 확률이 가장 높은 '지원 상태'가 되는 것은 확실히 보장합니다." }
+      ].map((item, i) => (
+        <details key={i} className="group bg-white rounded-[30px] border border-black/5 shadow-xl shadow-black/[0.01] overflow-hidden transition-all duration-300">
+          <summary className="p-10 flex justify-between items-center cursor-pointer list-none font-black text-xl italic tracking-tight select-none">
+            <div className="flex gap-6 items-center">
+              <span className="text-zinc-200 italic">Q.</span>
+              <span>{item.q}</span>
+            </div>
+            <div className="group-open:rotate-180 transition-transform text-zinc-300">
+              <ChevronRight />
+            </div>
+          </summary>
+          <div className="px-10 pb-10 pl-[88px] text-zinc-400 font-bold leading-relaxed italic border-t border-zinc-50 pt-6 break-keep">
+            {item.a}
+          </div>
+        </details>
+      ))}
+    </div>
+  </div>
+);
 
 export default App;
